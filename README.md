@@ -14,4 +14,9 @@ deploy:
 
 A digest sets `image.digest` and sets `image.tag` to the calling commit. A tag sets `image.tag` and clears `image.digest`. The values file is `deploy/<app>/values.yaml`. `charts/<app>/values.yaml` is updated too when it exists.
 
-The homelab write key is a deploy key stored only as `HOMELAB_DEPLOY_KEY` in this repository. Calling workflows do not receive it. The workflow refuses any app name other than the directory it is allowed to edit, and it only stages those values files.
+Pass the homelab write deploy key as `homelab_deploy_key`. GitHub does not give a called workflow the secrets of this repository, so the caller has to pass the key. The workflow still refuses an unsafe app name and stages only that application's values files.
+
+```yaml
+    secrets:
+      homelab_deploy_key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
+```

@@ -12,6 +12,10 @@ on:
         description: Image digest (sha256:...) or tag to commit into homelab.
         required: true
         type: string
+    secrets:
+      homelab_deploy_key:
+        description: Write deploy key for alchemmist/homelab.
+        required: true
 
 jobs:
   commit-image-version:
@@ -21,7 +25,7 @@ jobs:
       - name: Require the homelab deploy key
         shell: bash
         env:
-          HOMELAB_DEPLOY_KEY: ${{ secrets.HOMELAB_DEPLOY_KEY }}
+          HOMELAB_DEPLOY_KEY: ${{ secrets.homelab_deploy_key }}
         run: |
           set -euo pipefail
           if [[ -z "${HOMELAB_DEPLOY_KEY:-}" ]]; then
@@ -48,7 +52,7 @@ jobs:
         with:
           repository: alchemmist/homelab
           path: homelab
-          ssh-key: ${{ secrets.HOMELAB_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.homelab_deploy_key }}
           persist-credentials: true
 
       - name: Resolve the releaser revision
