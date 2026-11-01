@@ -1,0 +1,83 @@
+name: Deploy to Socrat
+description: Pin an image on an Argo CD Application in the Socrat cluster.
+inputs:
+  token:
+    description: Argo CD API bearer token
+    required: true
+  image_version:
+    description: Image digest (sha256:...) or tag to roll out
+    required: true
+  app:
+    description: Argo CD Application name. Defaults to the GitHub repository name.
+    required: false
+    default: ${{ github.event.repository.name }}
+  server:
+    description: Argo CD server URL
+    required: false
+    default: https://argocd.socrat.alchemmist.xyz
+  project:
+    description: Argo CD project. Defaults to the application name.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Update the Argo CD Application
+      shell: bash
+      env:
+        ARGOCD_AUTH_TOKEN: ${{ inputs.token }}
+        ARGOCD_SERVER: ${{ inputs.server }}
+        IMAGE_VERSION: ${{ inputs.image_version }}
+        APP_NAME: ${{ inputs.app }}
+        APP_PROJECT: ${{ inputs.project }}
+      run: |
+        set -euo pipefail
+        : "${ARGOCD_AUTH_TOKEN:?missing token}"
+        : "${IMAGE_VERSION:?missing image_version}"
+        : "${APP_NAME:?missing app}"
+        if [[ -z "$APP_PROJECT" ]]; then
+          APP_PROJECT="$APP_NAME"
+        fi
+
+        if [[ "$IMAGE_VERSION" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+          parameter="image.digest"
+        elif [[ "$IMAGE_VERSION" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+          parameter="image.tag"
+        else
+          echo "image_version must be a sha256 digest or an image tag." >&2
+          exit 1
+        fi
+
+        # An older build can finish after a newer commit on the same branch.
+        if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          latest="$(git ls-remote origin "refs/heads/${GITHUB_REF_NAME}" | awk 'NR == 1 { print $1 }')"
+          if [[ -n "$latest" && "$GITHUB_SHA" != "$latest" ]]; then
+            echo "Skipping stale build $GITHUB_SHA; ${GITHUB_REF_NAME} is now $latest."
+            exit 0
+          fi
+        fi
+
+        patch="$(jq -cn --arg name "$parameter" --arg value "$IMAGE_VERSION" \
+          '{spec:{source:{helm:{parameters:[{name:$name,value:$value,forceString:true}]}}}}')"
+        request="$(jq -cn \
+          --arg name "$APP_NAME" \
+          --arg project "$APP_PROJECT" \
+          --arg patch "$patch" \
+          '{name:$name,appNamespace:"argocd",project:$project,patchType:"merge",patch:$patch}')"
+
+        body="$(mktemp)"
+        status="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+          --request PATCH \
+          --config <(printf 'header = "Authorization: Bearer %s"\n' "$ARGOCD_AUTH_TOKEN") \
+          --header 'Content-Type: application/json' \
+          --data "$request" \
+          "$ARGOCD_SERVER/api/v1/applications/${APP_NAME}")"
+        if [[ "$status" != 200 ]]; then
+          echo "Argo CD Application update failed with HTTP $status." >&2
+          # Drop anything that could echo the bearer token back.
+          sed -E 's/Bearer [^"[:space:]]+/Bearer [redacted]/g' "$body" >&2 || true
+          rm -f "$body"
+          exit 1
+        fi
+        rm -f "$body"
+        echo "Submitted $parameter=$IMAGE_VERSION to Application $APP_NAME."
