@@ -11,6 +11,10 @@ inputs:
     description: Application name. Defaults to the GitHub repository name.
     required: false
     default: ${{ github.event.repository.name }}
+  component:
+    description: Image block to update. Defaults to the top-level image key.
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -42,13 +46,14 @@ runs:
       env:
         APP: ${{ inputs.app }}
         IMAGE_VERSION: ${{ inputs.image_version }}
+        COMPONENT: ${{ inputs.component }}
       run: |
         set -euo pipefail
         git config --global user.name "socrat-releaser"
         git config --global user.email "41898282+socrat-releaser@users.noreply.github.com"
         cd .socrat-homelab
         git pull --rebase origin main
-        python3 "$GITHUB_ACTION_PATH/deploy.py" . "$APP" "$IMAGE_VERSION" "$GITHUB_SHA"
+        python3 "$GITHUB_ACTION_PATH/deploy.py" . "$APP" "$IMAGE_VERSION" "$GITHUB_SHA" "$COMPONENT"
         if git diff --quiet; then
           echo "No values change."
           exit 0

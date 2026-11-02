@@ -14,4 +14,6 @@ GitHub Action that records a release in `alchemmist/homelab`. It updates `image.
 
 A digest sets `image.digest` and sets `image.tag` to the calling commit. A tag sets `image.tag` and clears `image.digest`. The file is `deploy/<app>/values.yaml`. `charts/<app>/values.yaml` is updated too when it exists.
 
+Pass `component` when one application publishes several images, such as `front`. The matching block must already contain `tag` and `digest`.
+
 `token` is a write deploy key for `alchemmist/homelab`. The action stages only that application's values files.
