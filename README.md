@@ -17,3 +17,5 @@ A digest sets `image.digest` and sets `image.tag` to the calling commit. A tag s
 Pass `component` when one application publishes several images, such as `front`. The matching block must already contain `tag` and `digest`.
 
 `token` is a write deploy key for `alchemmist/homelab`. The action stages only that application's values files.
+
+The deploy key is written to a temporary `0600` file for that step and removed before the step exits. Git uses that file with `IdentitiesOnly` and does not consult ssh-agent. Interrupted fetches and pushes are retried. If `main` moved, the same commit is rebased and pushed again. A commit already on `main`, or a rebase that would duplicate it, is not pushed again.

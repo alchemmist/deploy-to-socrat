@@ -18,49 +18,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Skip a stale build
-      id: stale
-      shell: bash
-      run: |
-        set -euo pipefail
-        latest="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | awk 'NR == 1 { print $1 }')"
-        if [[ -n "$latest" && "$GITHUB_SHA" != "$latest" ]]; then
-          echo "skip=true" >> "$GITHUB_OUTPUT"
-          echo "Skipping stale build $GITHUB_SHA; ${GITHUB_REF_NAME} is $latest."
-        else
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Check out homelab
-      if: steps.stale.outputs.skip != 'true'
-      uses: actions/checkout@v4
-      with:
-        repository: alchemmist/homelab
-        path: .socrat-homelab
-        ssh-key: ${{ inputs.token }}
-        persist-credentials: true
-
     - name: Commit the image version
-      if: steps.stale.outputs.skip != 'true'
       shell: bash
       env:
         APP: ${{ inputs.app }}
         IMAGE_VERSION: ${{ inputs.image_version }}
         COMPONENT: ${{ inputs.component }}
-      run: |
-        set -euo pipefail
-        git config --global user.name "socrat-releaser"
-        git config --global user.email "41898282+socrat-releaser@users.noreply.github.com"
-        cd .socrat-homelab
-        git pull --rebase origin main
-        python3 "$GITHUB_ACTION_PATH/deploy.py" . "$APP" "$IMAGE_VERSION" "$GITHUB_SHA" "$COMPONENT"
-        if git diff --quiet; then
-          echo "No values change."
-          exit 0
-        fi
-        git add -- "deploy/$APP/values.yaml"
-        if [[ -f "charts/$APP/values.yaml" ]]; then
-          git add -- "charts/$APP/values.yaml"
-        fi
-        git commit -m "chore(${APP}): deploy ${IMAGE_VERSION}" -m "Source: ${GITHUB_REPOSITORY}@${GITHUB_SHA}"
-        git push origin HEAD:main
+        HOMELAB_DEPLOY_KEY: ${{ inputs.token }}
+      run: bash "$GITHUB_ACTION_PATH/deploy.sh"
