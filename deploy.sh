@@ -66,7 +66,7 @@ classify_push_failure() {
     printf 'transport\n'
     return 0
   fi
-  if printf '%s\n' "$text" | grep -E -q 'non-fast-forward|\(fetch first\)|Updates were rejected because'; then
+  if printf '%s\n' "$text" | grep -E -q 'non-fast-forward|\(fetch first\)|Updates were rejected because|cannot lock ref .*is at .*but expected'; then
     printf 'rejected\n'
     return 0
   fi

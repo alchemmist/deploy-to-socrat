@@ -102,6 +102,8 @@ source deploy.sh
 [[ $(classify_push_failure $'remote: error: GH006: Protected branch update failed\n! [remote rejected] HEAD -> main (protected branch hook declined)' 1) == fatal ]]
 [[ $(classify_push_failure 'timed out waiting for lock' 124) == transport ]]
 
+[[ $(classify_push_failure "remote rejected: cannot lock ref refs/heads/main: is at abc but expected def" 1) == rejected ]]
+
 file_mode() {
   if stat -c '%a' "$1" >/dev/null 2>&1; then
     stat -c '%a' "$1"
