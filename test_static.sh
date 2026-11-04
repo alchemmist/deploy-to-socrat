@@ -68,7 +68,7 @@ for required in (
 ):
     if required not in script:
         sys.exit(f"deploy.sh missing {required}")
-for forbidden in ("eval $(ssh-agent", "ssh.github.com", "Port 443", "uses: actions/checkout"):
+for forbidden in ("eval $(ssh-agent", "uses: actions/checkout"):
     if forbidden in script:
         sys.exit(f"deploy.sh contains {forbidden}")
 

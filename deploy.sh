@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
 # Commit one image version to alchemmist/homelab.
 #
-# actions/checkout@v4 (tag v4, 11d5960) writes a 0600 key and persists
-# core.sshCommand. It does not set IdentitiesOnly, BatchMode, or ConnectTimeout,
-# and it retries only its own fetch. LMS run 41811725828 reached GitHub SSH:
-# ls-remote returned publickey, the built-in retry fetched main, then
-# git pull --rebase failed the same way with no retry. Port 22 was not blocked,
-# so this step does not switch to ssh.github.com:443. It uses the deploy key
-# file directly, ignores ssh-agent, and retries transport failures. A rejected
-# push rebases that same commit. A commit that is already on main is left there.
+# Use GitHub SSH-over-443 with pinned official GitHub host keys.
+# Both CI and local port-22 connections have stalled or rejected valid keys.
 set -euo pipefail
 
 key_dir=""
@@ -154,7 +148,7 @@ ssh_command_string() {
       return 1
       ;;
   esac
-  printf "ssh -i '%s' -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o ConnectTimeout=%s -o ConnectionAttempts=1 -o StrictHostKeyChecking=yes -o CheckHostIP=no -o UserKnownHostsFile='%s' -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o NumberOfPasswordPrompts=0 -o GSSAPIAuthentication=no" \
+  printf "ssh -F /dev/null -p 443 -o Hostname=ssh.github.com -o HostKeyAlias=github.com -i '%s' -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o ConnectTimeout=%s -o ConnectionAttempts=1 -o StrictHostKeyChecking=yes -o CheckHostIP=no -o UserKnownHostsFile='%s' -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o NumberOfPasswordPrompts=0 -o GSSAPIAuthentication=no" \
     "$key_file" "$connect_timeout" "$known_hosts_file"
 }
 
