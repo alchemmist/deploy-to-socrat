@@ -19,3 +19,5 @@ Pass `component` when one application publishes several images, such as `front`.
 `token` is a write deploy key for `alchemmist/homelab`. The action stages only that application's values files.
 
 The deploy key is written to a temporary `0600` file for that step and removed before the step exits. Git uses that file with `IdentitiesOnly` and does not consult ssh-agent. Interrupted fetches and pushes are retried. If `main` moved, the same commit is rebased and pushed again. A commit already on `main`, or a rebase that would duplicate it, is not pushed again.
+
+For one atomic multi-component promotion, supply `images` instead of `image_version` and `component`, e.g. a JSON object `{"front":"sha256:…","back":"sha256:…"}` with full immutable digests. All values files are validated before writing and all components share one source SHA and one Git commit.
