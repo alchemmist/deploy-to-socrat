@@ -6,7 +6,10 @@ inputs:
     required: true
   image_version:
     description: Image digest (sha256:...) or tag.
-    required: true
+    required: false
+  images:
+    description: JSON object mapping component names to immutable sha256 digests; mutually exclusive with image_version and component.
+    required: false
   app:
     description: Application name. Defaults to the GitHub repository name.
     required: false
@@ -23,6 +26,7 @@ runs:
       env:
         APP: ${{ inputs.app }}
         IMAGE_VERSION: ${{ inputs.image_version }}
+        IMAGE_SET: ${{ inputs.images }}
         COMPONENT: ${{ inputs.component }}
         HOMELAB_DEPLOY_KEY: ${{ inputs.token }}
       run: bash "$GITHUB_ACTION_PATH/deploy.sh"

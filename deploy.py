@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Update one application's image version in the homelab checkout."""
 
+import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -58,10 +60,29 @@ def main() -> None:
         raise SystemExit(f"refusing component name {component!r}")
     if not re.match(r"^[0-9a-f]{40}$", git_sha):
         raise SystemExit("git_sha must be a 40-character commit id")
-    if DIGEST_RE.match(version):
-        digest, tag = version, git_sha
-    elif TAG_RE.match(version):
-        digest, tag = '""', version
+    batch = os.environ.get("IMAGE_SET", "")
+    if batch:
+        if version or (len(sys.argv) == 6 and sys.argv[5]):
+            raise SystemExit("images is mutually exclusive with image_version and component")
+        def unique(pairs):
+            result = dict(pairs)
+            if len(result) != len(pairs):
+                raise ValueError("duplicate component")
+            return result
+        try:
+            entries = json.loads(batch, object_pairs_hook=unique)
+        except ValueError as exc:
+            raise SystemExit("invalid images JSON") from exc
+        if not isinstance(entries, dict) or not entries or not all(
+            COMPONENT_RE.fullmatch(k) and isinstance(v, str) and DIGEST_RE.fullmatch(v)
+            for k, v in entries.items()
+        ):
+            raise SystemExit("images must map component names to sha256 digests")
+        updates = [(k, v, git_sha) for k, v in entries.items()]
+    elif DIGEST_RE.fullmatch(version):
+        updates = [(component, version, git_sha)]
+    elif TAG_RE.fullmatch(version):
+        updates = [(component, '""', version)]
     else:
         raise SystemExit("image_version must be a sha256 digest or an image tag")
 
@@ -72,18 +93,18 @@ def main() -> None:
     if not paths[0].is_file():
         raise SystemExit(f"missing {paths[0]}")
 
-    changed = False
+    pending = {}
     for path in paths:
-        original = path.read_text()
-        updated = update_image(original, digest=digest, tag=tag, component=component)
+        original = updated = path.read_text()
+        for name, digest, tag in updates:
+            updated = update_image(updated, digest=digest, tag=tag, component=name)
         if updated != original:
-            path.write_text(updated)
-            changed = True
-            print(f"updated {path}")
-    if not changed:
+            pending[path] = updated
+    for path, updated in pending.items():
+        path.write_text(updated)
+        print(f"updated {path}")
+    if not pending:
         print("image version already matches; nothing to commit")
-        return
-    print(f"ready {app} component={component} tag={tag} digest={digest}")
 
 
 if __name__ == "__main__":

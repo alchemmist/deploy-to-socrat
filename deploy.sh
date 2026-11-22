@@ -274,7 +274,7 @@ commit_image_version() {
     git -C "$homelab_dir" add -- "charts/${APP}/values.yaml"
   fi
   git -C "$homelab_dir" commit \
-    -m "chore(${APP}): deploy ${IMAGE_VERSION}" \
+    -m "chore(${APP}): deploy ${IMAGE_VERSION:-image set}" \
     -m "Source: ${GITHUB_REPOSITORY}@${GITHUB_SHA}"
   push_main
 }
@@ -297,7 +297,11 @@ require_number() {
 
 main() {
   : "${APP:?missing app}"
-  : "${IMAGE_VERSION:?missing image_version}"
+  IMAGE_VERSION="${IMAGE_VERSION:-}"
+  if [[ -z "$IMAGE_VERSION" && -z "${IMAGE_SET:-}" ]]; then
+    echo 'Provide image_version or images.' >&2
+    return 1
+  fi
   : "${GITHUB_SHA:?missing GITHUB_SHA}"
   : "${GITHUB_REPOSITORY:?missing GITHUB_REPOSITORY}"
   : "${GITHUB_REF_NAME:?missing GITHUB_REF_NAME}"

@@ -2,6 +2,9 @@
 """Unit tests for homelab values updates."""
 
 import importlib.util
+import json
+import os
+from unittest.mock import patch
 import subprocess
 import sys
 import tempfile
@@ -83,6 +86,22 @@ class CliTest(unittest.TestCase):
                 text = (root / folder / "lms" / "values.yaml").read_text()
                 self.assertIn(f"digest: {DIGEST}", text)
                 self.assertIn(f"tag: {SHA}", text)
+
+    def test_batch_validates_both_files_before_writing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_tree(root, DIGEST, "old")
+            first = root / "deploy/lms/values.yaml"
+            second = root / "charts/lms/values.yaml"
+            first.write_text(VALUES)
+            with patch.dict(os.environ, IMAGE_SET=json.dumps({"image": DIGEST, "front": DIGEST})):
+                self.assertNotEqual(self.run_cli(root, "").returncode, 0)
+                self.assertEqual(first.read_text(), VALUES)
+                second.write_text(VALUES)
+                self.assertEqual(self.run_cli(root, "").returncode, 0)
+                self.assertEqual(first.read_text().count(SHA), 2)
+                self.assertEqual(first.read_text(), second.read_text())
+                self.assertIn("nothing to commit", self.run_cli(root, "").stdout)
 
     def test_component_flag(self):
         with tempfile.TemporaryDirectory() as tmp:
